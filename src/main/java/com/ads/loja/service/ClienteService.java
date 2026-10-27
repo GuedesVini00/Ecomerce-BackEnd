@@ -4,6 +4,7 @@ package com.ads.loja.service;
 import com.ads.loja.model.Cliente;
 import com.ads.loja.repository.ClienteRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -14,9 +15,14 @@ import java.util.Optional;
 public class ClienteService {
 
     private final ClienteRepository clienteRepository;
+    private final PasswordEncoder passwordEncoder;
 
 
         public Cliente cadastrar(Cliente cliente) {
+
+            String senhaCriptografada = passwordEncoder.encode(cliente.getSenha());
+            cliente.setSenha(senhaCriptografada);
+
             return clienteRepository.save(cliente);
         }
         
