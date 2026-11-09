@@ -34,8 +34,8 @@ public class ProdutoService {
 
             Produto produto = produtoEncontrado.get();
             produto.setNome(dados.getNome());
-            produto.setDescritivo(dados.getDescritivo());
-            produto.setValor(dados.getValor());
+            produto.setDescricao(dados.getDescricao());
+            produto.setPreco(dados.getPreco());
             produto.setValorPromo(dados.getValorPromo());
             produto.setQuantidade(dados.getQuantidade());
             produto.setDestaque(dados.getDestaque());
