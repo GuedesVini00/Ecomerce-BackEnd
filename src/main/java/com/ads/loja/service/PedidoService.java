@@ -3,6 +3,8 @@ package com.ads.loja.service;
 
 import com.ads.loja.dto.CriarPedidoDto;
 import com.ads.loja.dto.ItemPedidoDto;
+import com.ads.loja.dto.ItemPedidoHistoricoDto;
+import com.ads.loja.dto.PedidoHistoricoDto;
 import com.ads.loja.model.Cliente;
 import com.ads.loja.model.Pedido;
 import com.ads.loja.model.Produto;
@@ -10,6 +12,8 @@ import com.ads.loja.model.ItemPedido;
 import com.ads.loja.repository.ClienteRepository;
 import com.ads.loja.repository.PedidoRepository;
 import com.ads.loja.repository.ProdutoRepository;
+import com.ads.loja.model.Carrinho;
+import com.ads.loja.repository.CarrinhoRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -29,10 +33,53 @@ public class PedidoService {
     private final PedidoRepository pedidosRepository;
     private final ClienteRepository clienteRepository;
     private final ProdutoRepository produtoRepository;
+    private final CarrinhoRepository carrinhoRepository;
 
-    public List<Pedido> buscarPedidosPorCliente(Integer clienteId) {
-        return pedidosRepository.buscarPedidosPorCliente(clienteId);
+
+    @Transactional(readOnly = true)
+    public List<PedidoHistoricoDto> buscarPedidosPorCliente(
+            Integer clienteId
+    ) {
+
+        return pedidosRepository
+                .buscarPedidosPorCliente(clienteId)
+                .stream()
+                .map(pedido -> {
+
+                    List<ItemPedidoHistoricoDto> itens =
+                            pedido.getItens()
+                                    .stream()
+                                    .map(item -> {
+
+                                        BigDecimal subtotal =
+                                                item.getPrecoUnitario()
+                                                        .multiply(
+                                                                BigDecimal.valueOf(
+                                                                        item.getQuantidade()
+                                                                )
+                                                        );
+
+                                        return new ItemPedidoHistoricoDto(
+                                                item.getProduto().getId(),
+                                                item.getProduto().getNome(),
+                                                item.getQuantidade(),
+                                                item.getPrecoUnitario(),
+                                                subtotal
+                                        );
+                                    })
+                                    .toList();
+
+                    return new PedidoHistoricoDto(
+                            pedido.getId(),
+                            pedido.getDataPedido(),
+                            pedido.getStatus(),
+                            pedido.getValorTotal(),
+                            itens
+                    );
+                })
+                .toList();
     }
+
 
     public BigDecimal calcularValorTotal(Pedido pedido) {
         return pedido.getItens().stream()
@@ -146,8 +193,22 @@ public class PedidoService {
 
         pedido.setValorTotal(calcularValorTotal(pedido));
 
-        // 8. Salva o pedido
 
-        return pedidosRepository.save(pedido);
+        // 8. Salva o pedido
+        Pedido pedidoSalvo = pedidosRepository.save(pedido);
+
+        // 9. Busca o carrinho do cliente
+        Carrinho carrinho = carrinhoRepository
+                .findByClienteId(cliente.getId())
+                .orElse(null);
+
+        // 10. Limpa os itens do carrinho
+        if (carrinho != null) {
+            carrinho.getItens().clear();
+        }
+
+        // 11. Retorna o pedido criado
+        return pedidoSalvo;
+
     }
 }
