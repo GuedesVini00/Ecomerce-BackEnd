@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -178,20 +179,36 @@ public class PedidoService {
 
             // Usa o preço do banco de dados
 
-            double valor = produto.getValorPromo() > 0
-                    ? produto.getValorPromo()
-                    : produto.getPreco();
+            double valor = obterPrecoEfetivo(produto);
 
-            BigDecimal preco = BigDecimal.valueOf(valor);
+            BigDecimal preco = BigDecimal.valueOf(valor)
+                    .setScale(2, RoundingMode.HALF_UP);
 
             item.setPrecoUnitario(preco);
 
             pedido.getItens().add(item);
         }
 
-        // 7. Calcula o total
+        // 7. Calcula o total dos produtos, desconto e frete
 
-        pedido.setValorTotal(calcularValorTotal(pedido));
+        BigDecimal valorProdutos = calcularValorTotal(pedido)
+                .setScale(2, RoundingMode.HALF_UP);
+
+        BigDecimal desconto = normalizarValor(dados.desconto());
+        BigDecimal frete = normalizarValor(dados.frete());
+
+        if (desconto.compareTo(valorProdutos) > 0) {
+            throw new IllegalArgumentException(
+                    "O desconto não pode ser maior que o valor dos produtos"
+            );
+        }
+
+        BigDecimal valorTotal = valorProdutos
+                .subtract(desconto)
+                .add(frete)
+                .setScale(2, RoundingMode.HALF_UP);
+
+        pedido.setValorTotal(valorTotal);
 
 
         // 8. Salva o pedido
@@ -210,5 +227,26 @@ public class PedidoService {
         // 11. Retorna o pedido criado
         return pedidoSalvo;
 
+    }
+
+    private double obterPrecoEfetivo(Produto produto) {
+        return produto.getValorPromo() > 0
+                ? produto.getValorPromo()
+                : produto.getPreco();
+    }
+
+    private BigDecimal normalizarValor(BigDecimal valor) {
+
+        if (valor == null) {
+            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+
+        if (valor.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException(
+                    "Desconto e frete não podem possuir valores negativos"
+            );
+        }
+
+        return valor.setScale(2, RoundingMode.HALF_UP);
     }
 }

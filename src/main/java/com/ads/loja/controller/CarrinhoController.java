@@ -95,7 +95,10 @@ public class CarrinhoController {
 
         Produto produto = item.getProduto();
 
-        double preco = produto.getPreco();
+        double preco = produto.getValorPromo() > 0
+                ? produto.getValorPromo()
+                : produto.getPreco();
+
         Integer quantidade = item.getQuantidade();
 
         return new ItemCarrinhoResponseDto(
